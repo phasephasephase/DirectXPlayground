@@ -6,14 +6,29 @@ present_t original_present;
 typedef HRESULT(__thiscall* resize_buffers_t)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 resize_buffers_t original_resize_buffers;
 
+// store the game's new D3D11 device here
+ID3D11Device* device;
+
 HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT flags) {
     static bool once = false;
     if (!once) {
-        // you could do initialization here
-        printf("IDXGISwapChain::Present() was called.\n");
+        // the game will fall back to D3D11 if the D3D12 device is dropped
+        // useful for D2D but is kind of unstable
+        ID3D12Device* bad_device;
+        if (SUCCEEDED(swap_chain->GetDevice(IID_PPV_ARGS(&bad_device))))
+        {
+            dynamic_cast<ID3D12Device5*>(bad_device)->RemoveDevice();
+            return original_present(swap_chain, sync_interval, flags);
+        }
         
         once = true;
     }
+    
+    // wait until we can get a D3D11 device
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
+        return original_present(swap_chain, sync_interval, flags);
+    
+    // the game is now using D3D11
     
     return original_present(swap_chain, sync_interval, flags);
 }
