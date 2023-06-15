@@ -1,4 +1,5 @@
 ﻿#include "common.h"
+#include "hook/hook.h"
 
 void entry() {
     AllocConsole();
@@ -13,6 +14,7 @@ void entry() {
     freopen_s(&err, "CONOUT$", "w", stderr);
     
     printf("Injected.\n");
+    install_hook();
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
