@@ -1,0 +1,1 @@
+target_sources(DirectXPlayground PRIVATE kiero.cpp kiero.h)
