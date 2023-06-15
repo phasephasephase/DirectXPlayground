@@ -6,4 +6,4 @@ my playground for hooking DirectX in Minecraft for Windows
 ## more info
 i organized the different experiments into different branches
 
-right now you're on the d3d11-fallback branch, which forces the game to run on d3d11 instead of d3d12
+right now you're on the d3d11-fallback+d2d-renderer branch, which forces the game to run on d3d11 instead of d3d12
