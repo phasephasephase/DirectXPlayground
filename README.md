@@ -6,4 +6,4 @@ my playground for hooking DirectX in Minecraft for Windows
 ## more info
 i organized the different experiments into different branches
 
-right now you're on the main branch, which just has a basic hooking example
+right now you're on the d3d11on12 branch, which uses D3D11on12 to get D3D11 rendering going because D3D12 sucks
