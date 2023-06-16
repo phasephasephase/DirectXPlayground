@@ -13,6 +13,7 @@ ID3D12Device* device12;
 // in case we get D3D12 (stuff for D3D11on12)
 ID3D12CommandQueue* command_queue;
 ID3D11DeviceContext* device_context11;
+ID3D11On12Device* device11on12;
 
 HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT flags) {
     static bool once = false;
@@ -53,9 +54,13 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
                 nullptr // the feature level we get back (we don't care)
             );
             
+            // query
+            device11->QueryInterface(IID_PPV_ARGS(&device11on12));
+            
             // print addresses of the things we got back to see if it worked
             printf("D3D11 device: %p\n", device11);
             printf("D3D11 device context: %p\n", device_context11);
+            printf("D3D11on12 device: %p\n", device11on12);
         }
         else {
             printf("Failed to get device.\n");
