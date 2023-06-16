@@ -13,4 +13,4 @@ add_subdirectory(external/kiero)
 target_include_directories(DirectXPlayground PRIVATE external/minhook/include)
 target_include_directories(DirectXPlayground PRIVATE external/kiero)
 
-target_link_libraries(DirectXPlayground PRIVATE minhook)
+target_link_libraries(DirectXPlayground PRIVATE minhook d3d11.lib)
