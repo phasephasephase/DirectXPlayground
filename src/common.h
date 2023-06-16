@@ -8,4 +8,5 @@
 
 // standard includes
 #include <stdio.h>
+#include <string>
 #include <thread>

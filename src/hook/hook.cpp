@@ -6,13 +6,13 @@ present_t original_present;
 typedef HRESULT(__thiscall* resize_buffers_t)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 resize_buffers_t original_resize_buffers;
 
-// store the game's new D3D11 device here
+// store the game's new D3D11 device2 here
 ID3D11Device* device;
 
 HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT flags) {
     static bool once = false;
     if (!once) {
-        // the game will fall back to D3D11 if the D3D12 device is dropped
+        // the game will fall back to D3D11 if the D3D12 device2 is dropped
         // useful for D2D but is kind of unstable
         ID3D12Device* bad_device;
         if (SUCCEEDED(swap_chain->GetDevice(IID_PPV_ARGS(&bad_device))))
@@ -24,19 +24,35 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
         once = true;
     }
     
-    // wait until we can get a D3D11 device
+    // wait until we can get a D3D11 device2
     if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
         return original_present(swap_chain, sync_interval, flags);
     
     // the game is now using D3D11
+    // initialize renderer (this function only runs once)
+    init_render(swap_chain);
+    
+    // draw whatever you want now!
+    begin_render();
+    
+    draw_filled_rect(vec2_t(100, 100), vec2_t(100, 100), D2D1::ColorF(D2D1::ColorF::Red));
+    draw_rect(vec2_t(100, 100), vec2_t(100, 100), D2D1::ColorF(D2D1::ColorF::Black), 5.0f);
+
+    draw_line(vec2_t(100, 100), vec2_t(200, 200), D2D1::ColorF(D2D1::ColorF::Black), 5.0f);
+    
+    set_font(L"Arial");
+    draw_text(L"Greetings planet - Floppy", vec2_t(100, 100), D2D1::ColorF(D2D1::ColorF::White), false, 20.0f);
+    
+    end_render();
     
     return original_present(swap_chain, sync_interval, flags);
 }
 
 HRESULT resize_buffers_callback(IDXGISwapChain3* swap_chain, UINT buffer_count, UINT width, 
                                 UINT height, DXGI_FORMAT new_format, UINT swap_chain_flags) {
-    // reinitialize your renderer here
-    printf("IDXGISwapChain::ResizeBuffers() was called.\n");
+    // reinitialize renderer
+    deinit_render();
+    // init_render() will be called again in present_callback()
     
     return original_resize_buffers(swap_chain, buffer_count, width, height, new_format, swap_chain_flags);
 }
