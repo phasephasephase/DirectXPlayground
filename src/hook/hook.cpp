@@ -6,6 +6,10 @@ present_t original_present;
 typedef HRESULT(__thiscall* resize_buffers_t)(IDXGISwapChain3*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 resize_buffers_t original_resize_buffers;
 
+// extra function we have to hook to get command lists for D3D11on12
+typedef void(__thiscall* execute_command_lists_t)(ID3D12CommandQueue*, UINT, ID3D11CommandList* const*);
+execute_command_lists_t original_execute_command_lists;
+
 // devices for both D3D11 and D3D12
 ID3D11Device* device11;
 ID3D12Device* device12;
@@ -23,6 +27,7 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
             printf("Got D3D11 device.\n");
             
             // i don't have to fiddle with D3D11on12 here!!!
+            init_render(swap_chain);
         }
         else if (SUCCEEDED(swap_chain->GetDevice(IID_PPV_ARGS(&device12)))) {
             printf("Got D3D12 device.\n");
@@ -31,10 +36,6 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
             D3D12_COMMAND_QUEUE_DESC queue_desc = {};
             queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
             queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-            
-            if (FAILED(device12->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&command_queue)))) {
-                printf("Failed to create command queue.\n");
-            }
             
             // some device flags for D3D11
             UINT device_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
@@ -78,6 +79,15 @@ HRESULT resize_buffers_callback(IDXGISwapChain3* swap_chain, UINT buffer_count, 
     printf("IDXGISwapChain::ResizeBuffers() was called.\n");
     
     return original_resize_buffers(swap_chain, buffer_count, width, height, new_format, swap_chain_flags);
+}
+
+void execute_command_lists_callback(ID3D12CommandQueue* this_ptr, UINT num_command_lists, 
+                                    ID3D11CommandList* const* command_lists) {
+    if (!command_queue) {
+        command_queue = this_ptr;
+    }
+    
+    original_execute_command_lists(this_ptr, num_command_lists, command_lists);
 }
 
 void install_hook() {
