@@ -1,7 +1,10 @@
 # DirectXPlayground
 my playground for hooking DirectX in Minecraft for Windows
 
-*also the first C++ project i've made public on GitHub*
+## paster warning
+DO NOT USE THIS PROJECT AS A BASE
+
+this repository is only meant to be used as a resource, and building a client directly from this code would be very impractical
 
 ## more info
 i organized the different experiments into different branches
