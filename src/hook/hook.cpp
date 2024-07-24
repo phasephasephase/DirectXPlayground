@@ -1,5 +1,10 @@
 #include "hook.h"
 
+#include "../common.h"
+#include "../renderer/render_util.h"
+
+#include <kiero.h>
+
 typedef HRESULT(__thiscall* present_t)(IDXGISwapChain3*, UINT, UINT);
 present_t original_present;
 
@@ -19,6 +24,8 @@ ID3D12CommandQueue* command_queue;
 ID3D11DeviceContext* device_context11;
 ID3D11On12Device* device11on12;
 
+IDXGISurface* back_buffer;
+
 HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT flags) {
     static bool once = false;
     if (!once) {
@@ -27,22 +34,24 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
             printf("Got D3D11 device.\n");
             
             // i don't have to fiddle with D3D11on12 here!!!
-            init_render(swap_chain);
+            // just get the back buffer and initialize the renderer
+            swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer));
         }
         else if (SUCCEEDED(swap_chain->GetDevice(IID_PPV_ARGS(&device12)))) {
             printf("Got D3D12 device.\n");
-            
-            // make a command queue
-            D3D12_COMMAND_QUEUE_DESC queue_desc = {};
-            queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-            queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+
+            // probably wait for command queue to be set
+            if (!command_queue) {
+                printf("Waiting for command queue...\n");
+                return original_present(swap_chain, sync_interval, flags);
+            }
             
             // some device flags for D3D11
             UINT device_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
             
             // that's about it, now we can just feed all this to D3D11on12
             // this function is a little confusing so i will comment it heavily
-            D3D11On12CreateDevice(
+            HRESULT hr = D3D11On12CreateDevice(
                 device12, // the D3D12 device
                 device_flags, // flags for the D3D11 device
                 nullptr, // array of feature levels (null is default, which is what the game uses i assume)
@@ -54,9 +63,18 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
                 &device_context11, // the D3D11 device context we get back
                 nullptr // the feature level we get back (we don't care)
             );
+
+            if (FAILED(hr)) {
+                printf("Failed to create D3D11on12 device, result: 0x%llX\n", hr);
+                return original_present(swap_chain, sync_interval, flags);
+            }
             
             // query
-            device11->QueryInterface(IID_PPV_ARGS(&device11on12));
+            hr = device11->QueryInterface(IID_PPV_ARGS(&device11on12));
+            if (FAILED(hr)) {
+                printf("Failed to query D3D11on12 device, result: 0x%llX\n", hr);
+                return original_present(swap_chain, sync_interval, flags);
+            }
             
             // print addresses of the things we got back to see if it worked
             printf("D3D11 device: %p\n", device11);
@@ -68,6 +86,22 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
         }
         
         once = true;
+    }
+
+    if (device11on12) {
+        init_render_11on12(swap_chain, device11on12);
+    }
+    else {
+        init_render(back_buffer);
+    }
+
+    // now we draw
+    begin_render(swap_chain->GetCurrentBackBufferIndex());
+    draw_filled_rect(vec2_t(10, 10), vec2_t(100, 100), D2D1::ColorF(D2D1::ColorF::Red));
+    end_render(swap_chain->GetCurrentBackBufferIndex());
+
+    if (device11on12) {
+        device_context11->Flush(); // gotta flush the context too
     }
     
     return original_present(swap_chain, sync_interval, flags);
@@ -85,6 +119,9 @@ void execute_command_lists_callback(ID3D12CommandQueue* this_ptr, UINT num_comma
                                     ID3D11CommandList* const* command_lists) {
     if (!command_queue) {
         command_queue = this_ptr;
+
+        // log number of command lists
+        printf("Got %d command lists.\n", num_command_lists);
     }
     
     original_execute_command_lists(this_ptr, num_command_lists, command_lists);
@@ -96,6 +133,9 @@ void install_hook() {
         // Present and ResizeBuffers live at indexes 140 and 145 respectively
         kiero::bind(140, (void**)&original_present, present_callback);
         kiero::bind(145, (void**)&original_resize_buffers, resize_buffers_callback);
+
+        // we also have to hook ExecuteCommandLists for D3D11on12 (index 54)
+        kiero::bind(54, (void**)&original_execute_command_lists, execute_command_lists_callback);
         printf("Hooked D3D12.\n");
         return;
     }

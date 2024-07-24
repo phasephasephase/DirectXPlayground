@@ -2,7 +2,6 @@
 #include "../common.h"
 
 #include <d2d1_3.h>
-#include <dwrite_1.h>
 
 // basic vector struct
 typedef struct vec2_t {
@@ -14,15 +13,12 @@ typedef struct vec2_t {
     }
 } vec2_t;
 
-void init_render(IDXGISwapChain3* swap_chain);
-
-// special overload for D3D11on12
-void init_render(ID3D11On12Device* device, IDXGISwapChain3* swap_chain, ID3D12Device* d3d12_device);
-
+void init_render(IDXGISurface* back_buffer);
+void init_render_11on12(IDXGISwapChain3* swap_chain, ID3D11On12Device* device11on12);
 void deinit_render();
 
-void begin_render();
-void end_render();
+void begin_render(int index = 0);
+void end_render(int index = 0);
 
 void draw_rect(vec2_t pos, vec2_t size, D2D1::ColorF color, float thickness = 1.0f);
 void draw_filled_rect(vec2_t pos, vec2_t size, D2D1::ColorF color);
