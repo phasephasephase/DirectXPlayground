@@ -16,18 +16,19 @@ typedef void(__thiscall* execute_command_lists_t)(ID3D12CommandQueue*, UINT, ID3
 execute_command_lists_t original_execute_command_lists;
 
 // devices for both D3D11 and D3D12
-ID3D11Device* device11;
-ID3D12Device* device12;
+ID3D11Device* device11 = nullptr;
+ID3D12Device* device12 = nullptr;
 
 // in case we get D3D12 (stuff for D3D11on12)
-ID3D12CommandQueue* command_queue;
-ID3D11DeviceContext* device_context11;
-ID3D11On12Device* device11on12;
+ID3D12CommandQueue* command_queue = nullptr;
+ID3D11DeviceContext* device_context11 = nullptr;
+ID3D11On12Device* device11on12 = nullptr;
 
-IDXGISurface* back_buffer;
+IDXGISurface* back_buffer = nullptr;
+
+bool once = false;
 
 HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT flags) {
-    static bool once = false;
     if (!once) {
         // let's see what version we got
         if (SUCCEEDED(swap_chain->GetDevice(IID_PPV_ARGS(&device11)))) {
@@ -39,6 +40,13 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
         }
         else if (SUCCEEDED(swap_chain->GetDevice(IID_PPV_ARGS(&device12)))) {
             printf("Got D3D12 device.\n");
+
+            // if d3d11on12 was already initialized we chillin
+            if (device11on12) {
+                printf("D3D11on12 already initialized.\n");
+                once = true;
+                return original_present(swap_chain, sync_interval, flags);
+            }
 
             // probably wait for command queue to be set
             if (!command_queue) {
@@ -109,8 +117,14 @@ HRESULT present_callback(IDXGISwapChain3* swap_chain, UINT sync_interval, UINT f
 
 HRESULT resize_buffers_callback(IDXGISwapChain3* swap_chain, UINT buffer_count, UINT width, 
                                 UINT height, DXGI_FORMAT new_format, UINT swap_chain_flags) {
-    // reinitialize your renderer here
-    printf("IDXGISwapChain::ResizeBuffers() was called.\n");
+    deinit_render();
+    if (back_buffer) back_buffer = nullptr;
+
+    if (device11on12) {
+        device_context11->Flush();
+    }
+
+    once = false;
     
     return original_resize_buffers(swap_chain, buffer_count, width, height, new_format, swap_chain_flags);
 }
@@ -119,9 +133,6 @@ void execute_command_lists_callback(ID3D12CommandQueue* this_ptr, UINT num_comma
                                     ID3D11CommandList* const* command_lists) {
     if (!command_queue) {
         command_queue = this_ptr;
-
-        // log number of command lists
-        printf("Got %d command lists.\n", num_command_lists);
     }
     
     original_execute_command_lists(this_ptr, num_command_lists, command_lists);

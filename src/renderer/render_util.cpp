@@ -87,7 +87,21 @@ void init_render_11on12(IDXGISwapChain3* swap_chain, ID3D11On12Device* device11o
 
 void deinit_render() {
     if (write_factory) write_factory->Release();
+
+    for (auto& render_target : render_targets) {
+        render_target->Release();
+    }
+
+    for (auto& wrapped_back_buffer : wrapped_back_buffers) {
+        wrapped_back_buffer->Release();
+    }
+
+    render_targets.clear();
+    wrapped_back_buffers.clear();
+    back_buffers.clear();
+    
     if (context) context->Release();
+    if (d2d_factory) d2d_factory->Release();
     
     initialized = false;
 }
